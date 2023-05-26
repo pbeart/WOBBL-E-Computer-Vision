@@ -126,7 +126,7 @@ reg[18:0] matchiest_pixel;
 // Find boundary of cursor box
 
 // Highlight detected areas
-wire [23:0] red_high, with_target_explainer, with_target_crosshair;
+wire [23:0] red_high, with_target_explainer, with_target_crosshair, with_text;
 assign grey = green[7:1] + red[7:2] + blue[7:2]; //Grey = green/2 + red/4 + blue/4
 
 
@@ -140,11 +140,47 @@ assign with_target_crosshair = show_crosshair ? 24'h00ffff : {red, green, blue};
 
 assign with_target_explainer = ((x<50) && (y<50)) ? {target_red, target_green, target_blue } : with_target_crosshair;
 
+
+
+wire [7:0] displaystring [3:0];
+assign displaystring[0] = 8'd51;
+assign displaystring[1] = 8'd53;
+assign displaystring[2] = 8'd0;
+assign displaystring[3] = 8'd0;
+
+
+wire [7:0] current_string_index = (x / char_spacing_x + 5*char_size);
+wire [7:0] current_char;
+
+assign current_char = displaystring[current_string_index];
+
+localparam [4:0] char_size=3; 
+localparam [4:0] char_spacing_x = 1;
+localparam [4:0] char_spacing_y = 5;
+
+wire [4:0] char_col;
+assign char_col = (x % (char_spacing_x + 5*char_size))/char_size;
+
+wire [4:0] char_row;
+assign char_row = (y % (char_spacing_y + 5*char_size))/char_size;
+
+wire char_pixel;
+
+assign with_text = (y<50 && current_string_index<=3) ? (char_pixel && (char_col <= 4 && char_row <= 4) ? 24'h00ff00 : 24'h000000) : with_target_explainer;
+
+
+wobbl_e_character_render text_renderer(
+    .character(current_char),
+    .row(char_row),
+    .col(char_col),
+    .pixel(char_pixel));
+
+
 // Show bounding box
 wire [23:0] new_image;
 wire bb_active;
 assign bb_active = (x == left) | (x == right) | (y == top) | (y == bottom);
-assign new_image = with_target_explainer; //bb_active ? bb_col : with_target_explainer;
+assign new_image = with_text; //bb_active ? bb_col : with_target_explainer;
 
 // Switch output pixels depending on mode switch
 // Don't modify the start-of-packet word - it's a packet discriptor

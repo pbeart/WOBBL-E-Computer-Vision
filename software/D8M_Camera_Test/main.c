@@ -19,11 +19,15 @@
 #define EEE_IMGPROC_MSG 1
 #define EEE_IMGPROC_ID 2
 #define EEE_IMGPROC_BBCOL 3
+#define EEE_IMGPROC_THRESH 4
 
-#define EXPOSURE_INIT 0x002000
+//#define EXPOSURE_INIT 0x002000
+#define EXPOSURE_INIT 0x0
 #define EXPOSURE_STEP 0x100
-#define GAIN_INIT 0x080
+//#define GAIN_INIT 0x080
+#define GAIN_INIT 320
 #define GAIN_STEP 0x040
+#define threshold_step 0x5
 #define DEFAULT_LEVEL 3
 
 #define MIPI_REG_PHYClkCtl		0x0056
@@ -169,6 +173,8 @@ int message_index = 0;
 int target_location_x = 0;
 int target_location_y = 0;
 
+int target_strength = 0;
+
 int get_target_colour_by_index(int index) {
 	switch(index) {
 	   case 0:
@@ -260,6 +266,7 @@ int main()
     	int boundingBoxColour = 0;
     	alt_u32 exposureTime = EXPOSURE_INIT;
     	alt_u16 gain = GAIN_INIT;
+    	alt_u16 threshold = 50;
 
         OV8865SetExposure(exposureTime);
         OV8865SetGain(gain);
@@ -347,6 +354,8 @@ int main()
         	   //printf("%08x ",word);
            } else if (message_index == 2) {
         	   //printf("    Magic: %08x\n", word);
+        	   //target_strength = word & 0x7ffff;
+        	   target_strength = word & 0xffffff;
            }
            message_index++;
        }
@@ -402,13 +411,26 @@ int main()
         	   OV8865_FOCUS_Move_to(current_focus);
         	   //printf("\nFocus = %x ",current_focus);
        	   	   break;}
+       	   case 'y': {
+       		   threshold += threshold_step;
+			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
+			   //printf("\nFocus = %x ",current_focus);
+			   break;}
+		   case 'h': {
+			   if(threshold > 0) threshold -= threshold_step;
+			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
+			   //printf("\nFocus = %x ",current_focus);
+			   break;}
        }
        printf("\n{");
        printf("\"current_search_colour\": %d,", get_target_colour_by_index(boundingBoxColour));
-       printf("\"search_location\": [%d, %d],", target_location_x, target_location_y);
+       printf("\"target_location\": [%d, %d],", target_location_x, target_location_y);
        printf("\"cam_gain\": %d,", gain);
        printf("\"cam_exposure\": %d,", exposureTime);
        printf("\"cam_focus\": %d,", current_focus);
+       printf("\"sens_threshold\": %d,", threshold);
+       //printf("\"target_strength\": %d,", target_strength);
+       printf("\"target_strength\": %06x,", target_strength);
        printf("}\n");
 
 

@@ -1,0 +1,95 @@
+module wobbl_e_character_render(
+	character,
+	row,
+	col,
+	pixel);
+	
+	input [7:0] character;
+	input [3:0] row;
+	input [3:0] col;
+	output pixel;
+	
+	wire [25:0] lut_output;
+	
+  assign pixel = (lut_output >> ((4-row)*5 + (4-col)));
+  
+  	/*initial begin
+      $monitor("lut value: %b",  lut_output);
+      $monitor("shifted lut value: %b",  (lut_output << (4-row)*5 + (4-col)));
+      $monitor("masked lut value: %b",  1 & (lut_output << (4-row)*5 + (4-col)));
+    end*/
+	
+  	always @(character)
+      begin
+        
+      case (character)
+          8'd48: lut_output = {
+              5'b01110,
+              5'b10001,
+              5'b10001,
+              5'b10001,
+              5'b01110};
+          8'd49: lut_output = {
+              5'b00100,
+              5'b01100,
+              5'b00100,
+              5'b00100,
+              5'b11111};
+          8'd50: lut_output = {
+              5'b11111,
+              5'b00001,
+              5'b11111,
+              5'b10000,
+              5'b11111};
+          8'd51: lut_output = {
+              5'b11111,
+              5'b00001,
+              5'b11111,
+              5'b00001,
+              5'b11111};
+          8'd52: lut_output = {
+              5'b10000,
+              5'b10000,
+              5'b10100,
+              5'b11111,
+              5'b00100};
+          8'd53: lut_output = {
+              5'b11111,
+              5'b10000,
+              5'b11110,
+              5'b00001,
+              5'b11110};
+          8'd54: lut_output = {
+              5'b01110,
+              5'b10000,
+              5'b11110,
+              5'b10001,
+              5'b01110};
+          8'd55: lut_output = {
+              5'b11111,
+              5'b00001,
+              5'b00010,
+              5'b00100,
+              5'b01000};
+          8'd56: lut_output = {
+              5'b01110,
+              5'b10001,
+              5'b01110,
+              5'b10001,
+              5'b01110};
+          8'd57: lut_output = {
+              5'b11111,
+              5'b10001,
+              5'b11111,
+              5'b00001,
+              5'b00001};
+          default: lut_output = {
+              5'b01010,
+              5'b01010,
+              5'b00000,
+              5'b10001,
+              5'b01110};
+      endcase;
+      end
+	
+endmodule

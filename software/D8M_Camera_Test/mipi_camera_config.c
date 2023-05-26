@@ -631,13 +631,25 @@ void MipiCameraInit(void)
 		printf("\n{\"info\":\"Starting MipiCameraInit, starting write/read test...\"}\n");
 
 		printf("\n{\"info\":\"Test results:\\n");
+
+		int error = 0;
 	    for(i=0;i<10;i++){
 	       OV8865_write_cmos_sensor_8(0x3809,i);
 	      usleep(100);
-	        printf("%d (%d)\\n",OV8865_read_cmos_sensor_8(0x3809),i);
+	      int read = OV8865_read_cmos_sensor_8(0x3809);
+	        printf("%d (set to %d)\\n",read,i);
+	        if (read != i) {
+	        	error = 1;
+	        }
+
 	      usleep(100);
 	    }
 	    printf("\"}\n");
+	    if (error) {
+	    	printf("\n{\"error\":\"Camera CMOS write test failed!\"}\n");
+	    } else {
+	    	printf("\n{\"info\":\"Camera CMOS write test passed.\"}\n");
+	    };
 	 num = sizeof(MipiCameraReg)/sizeof(MipiCameraReg[0]);
      for(i=0;i<num;i++){
 

@@ -68,7 +68,7 @@ parameter IMAGE_H = 11'd480;
 parameter MESSAGE_BUF_MAX = 256;
 parameter MSG_INTERVAL = 6;
 parameter BB_COL_DEFAULT = 24'h00ff00;
-
+parameter THRESH_DEFAULT = 16'h10;
 
 wire signed [7:0]   red, green, blue, grey;
 wire [7:0]   red_out, green_out, blue_out;
@@ -106,19 +106,22 @@ assign blue_subtracted = (blue - target_blue);
 wire signed [18:0] distance_squared;
 wire signed [18:0] red_squared, green_squared, blue_squared;
 
-assign red_squared = red_subtracted*red_subtracted;
-assign green_squared = green_subtracted*green_subtracted;
-assign blue_squared = blue_subtracted*blue_subtracted;
+assign red_squared = red;//red_subtracted*red_subtracted;
+assign green_squared = green;//green_subtracted*green_subtracted;
+assign blue_squared = 8'hFF - blue;//blue_subtracted*blue_subtracted;
 
 assign distance_squared = (red_squared + green_squared + blue_squared);
 
 
-assign match_detect = distance_squared < 18'd1000;
+assign match_detect = distance_squared < 18'd30;
 
 
 // the pixel with the lowest distance_squared
 reg[10:0] matchiest_pixel_x, matchiest_pixel_y, crosshair_x, crosshair_y;
 
+reg[21:0] match_count;
+reg[10:0] last_average_match_x, last_average_match_y;
+reg[31:0] total_match_x, total_match_y;
 
 // the distance of this pixel
 reg[18:0] matchiest_pixel;
@@ -126,25 +129,110 @@ reg[18:0] matchiest_pixel;
 // Find boundary of cursor box
 
 // Highlight detected areas
-wire [23:0] red_high, with_target_explainer, with_target_crosshair;
+wire [23:0] red_high, with_target_explainer, with_target_crosshair, with_avg_crosshair, with_text, with_uart_activity;
 assign grey = green[7:1] + red[7:2] + blue[7:2]; //Grey = green/2 + red/4 + blue/4
 
 
-// assign red_high  =  match_detect ? {8'hff, 8'h0, 8'hff} : {red, green, blue};
+assign red_high  =  match_detect ? {8'hff, 8'h0, 8'hff} : {red, green, blue};
+
+wire show_avg_crosshair;
+
+assign show_avg_crosshair = (((x == last_average_match_x) && (y < last_average_match_y + 50) && (y > last_average_match_y - 50)) ||
+((y == last_average_match_y) && (x < last_average_match_x + 50) && (x > last_average_match_x - 50)));
+
+assign with_avg_crosshair = show_avg_crosshair ? 24'hff00ff : red_high;
+
 
 wire show_crosshair;
+
 assign show_crosshair = (((x == crosshair_x) && (y < crosshair_y + 50) && (y > crosshair_y - 50)) ||
 ((y == crosshair_y) && (x < crosshair_x + 50) && (x > crosshair_x - 50)));
 
-assign with_target_crosshair = show_crosshair ? 24'h00ffff : {red, green, blue};
+assign with_target_crosshair = show_crosshair ? 24'h00ffff : with_avg_crosshair;
 
-assign with_target_explainer = ((x<50) && (y<50)) ? {target_red, target_green, target_blue } : with_target_crosshair;
+
+
+wire[3:0] fps_high;
+wire[3:0] fps_low;
+
+wire bad_vs_analogue;
+
+assign bad_vs_analogue = y==0;
+
+// instantiate an FPS Counter
+FpsCounter fps_counter(
+	.clk50(clk),
+	.vs(bad_vs_analogue),
+	
+	.fps_h(fps_high),
+	.fps_l(fps_low)
+);
+
+wire [7:0] displaystring [19:0];
+assign displaystring[0] = "C";
+assign displaystring[1] = "O";
+assign displaystring[2] = "L";
+assign displaystring[3] = ":";
+assign displaystring[4] = " ";
+assign displaystring[5] = " ";
+assign displaystring[6] = " ";
+assign displaystring[7] = "F";
+assign displaystring[8] = "P";
+assign displaystring[9] = "S";
+assign displaystring[10] = ":";
+assign displaystring[11] = fps_high+8'd48;
+assign displaystring[12] = fps_low+8'd48;
+assign displaystring[13] = " ";
+assign displaystring[14] = "R";
+assign displaystring[15] = "C";
+assign displaystring[16] = "V";
+assign displaystring[17] = ":"; //(uart_active_count)+8'd48;//":";
+assign displaystring[18] = " ";
+assign displaystring[19] = " ";
+
+
+wire [7:0] current_string_index = x / (char_spacing_x + 5*char_size);
+wire [7:0] current_char;
+
+assign current_char = displaystring[current_string_index];
+
+localparam [4:0] char_size=3; 
+localparam [4:0] char_spacing_x = 1;
+localparam [4:0] char_spacing_y = 5;
+
+wire [4:0] char_col;
+assign char_col = (x % (char_spacing_x + 5*char_size))/char_size;
+
+wire [4:0] char_row;
+assign char_row = (y % (char_spacing_y + 5*char_size))/char_size;
+
+wire char_pixel;
+
+assign with_text = (y<=480 && y>=460 && x <  20  *  (char_spacing_x + 5*char_size)) ? (char_pixel && (char_col <= 4 && char_row <= 4) ? 24'hFFFFFF : 24'h000000) : with_target_crosshair;
+
+assign with_target_explainer = ((x<96) && (x>64) && (y<=480) && (y>=460)) ? {target_red, target_green, target_blue } : with_text;
+
+wire uart_was_active;
+
+reg [31:0] uart_active_count;
+
+assign uart_was_active = uart_active_count > 4'd0;
+
+assign with_uart_activity = ((x<320) && (x>288) && (y<=480) && (y>=460)) ? (uart_was_active ? 24'hFFFFFF : 24'h000000) : with_target_explainer;
+
+
+wobbl_e_character_render text_renderer(
+    .character(current_char),
+    .row(char_row),
+    .col(char_col),
+    .pixel(char_pixel));
+
 
 // Show bounding box
 wire [23:0] new_image;
 wire bb_active;
 assign bb_active = (x == left) | (x == right) | (y == top) | (y == bottom);
-assign new_image = with_target_explainer; //bb_active ? bb_col : with_target_explainer;
+assign new_image = with_uart_activity; //bb_active ? bb_col : with_target_explainer;
 
 // Switch output pixels depending on mode switch
 // Don't modify the start-of-packet word - it's a packet discriptor
@@ -171,6 +259,10 @@ always@(posedge clk) begin
 	end
 end
 
+reg [7:0] cursor_red;
+reg [7:0] cursor_green;
+reg [7:0] cursor_blue;
+
 //Find first and last red pixels
 reg [10:0] x_min, y_min, x_max, y_max;
 always@(posedge clk) begin
@@ -180,26 +272,40 @@ always@(posedge clk) begin
 		if (y < y_min) y_min <= y;
 		
 		y_max <= y;
+		total_match_x<=total_match_x + x;
+		total_match_y<=total_match_y + y;
+		if (!(sop & in_valid)) begin
+			match_count<=match_count + 1;
+		end
 	end
 	if (distance_squared <= matchiest_pixel && (x>20) && (y>30) && (x< IMAGE_W-30) && (y<IMAGE_H-30)) begin
 		matchiest_pixel_x<=x;
 		matchiest_pixel_y<=y;
 		matchiest_pixel <= distance_squared;
+		cursor_red<=red;
+		cursor_green<=green;
+		cursor_blue<=blue;
 	end
 	if (sop & in_valid) begin	//Reset bounds on start of packet
 		x_min <= IMAGE_W-11'h1;
 		x_max <= 0;
 		y_min <= IMAGE_H-11'h1;
 		y_max <= 0;
+		match_count<=0;
 		
 		// to avoid multiple immediately repeated 'start of packets' causing us to lose the crosshair position! (really should debounce)
 		if (matchiest_pixel_y != 0) begin
 			crosshair_x<=matchiest_pixel_x;
 			crosshair_y<=matchiest_pixel_y;
+			
+			last_average_match_x<=(total_match_x / match_count);
+			last_average_match_y<=(total_match_y / match_count);
 		end
 		
 		matchiest_pixel_x <= 0;
 		matchiest_pixel_y <= 0;
+		total_match_x<=0;
+		total_match_y<=0;
 		matchiest_pixel <= {19{1'b1}};
 	end
 end
@@ -254,12 +360,16 @@ always@(*) begin	//Write words to FIFO as state machine advances
 		end
 		2'b10: begin
 			//msg_buf_in = {5'b0, x_min, 5'b0, y_min};	//Top left coordinate
+			// crosshair x and y are 11 bit each
 			msg_buf_in = {5'b0, crosshair_x, 5'b0, crosshair_y};
 			msg_buf_wr = 1'b1;
 		end
 		2'b11: begin
 			//msg_buf_in = {5'b0, x_max, 5'b0, y_max}; //Bottom right coordinate
-			msg_buf_in = {13'b0, matchiest_pixel};
+			
+			//msg_buf_in = {13'b0, matchiest_pixel};
+			msg_buf_in = {8'b0, cursor_red, cursor_green, cursor_blue};
+			//msg_buf_in = uart_active_count;
 			//msg_buf_in = 31'hDEADBEEF;
 			msg_buf_wr = 1'b1;
 		end
@@ -313,6 +423,7 @@ STREAM_REG #(.DATA_WIDTH(26)) out_reg (
 `define READ_MSG    				1
 `define READ_ID    				2
 `define REG_BBCOL					3
+`define REG_THRESH				4
 
 //Status register bits
 // 31:16 - unimplemented
@@ -326,6 +437,7 @@ STREAM_REG #(.DATA_WIDTH(26)) out_reg (
 
 reg  [7:0]   reg_status;
 reg	[23:0]	bb_col;
+reg [15:0] thresh;
 
 always @ (posedge clk)
 begin
@@ -333,11 +445,20 @@ begin
 	begin
 		reg_status <= 8'b0;
 		bb_col <= BB_COL_DEFAULT;
+		thresh <= THRESH_DEFAULT;
+		uart_active_count<=0;
 	end
 	else begin
 		if(s_chipselect & s_write) begin
+			uart_active_count<=32'h00FFFFFF;
 		   if      (s_address == `REG_STATUS)	reg_status <= s_writedata[7:0];
 		   if      (s_address == `REG_BBCOL)	bb_col <= s_writedata[23:0];
+			if   		(s_address == `REG_THRESH) thresh <= s_writedata[15:0];
+		end
+		else begin
+			if (uart_active_count>4'h0) begin 
+				uart_active_count<=uart_active_count-1;
+			end
 		end
 	end
 end
@@ -363,6 +484,7 @@ begin
 		if   (s_address == `READ_MSG) s_readdata <= {msg_buf_out};
 		if   (s_address == `READ_ID) s_readdata <= 32'h1234EEE2;
 		if   (s_address == `REG_BBCOL) s_readdata <= {8'h0, bb_col};
+		if   (s_address == `REG_THRESH) s_readdata <= {16'h0, thresh};
 	end
 	
 	read_d <= s_read;
