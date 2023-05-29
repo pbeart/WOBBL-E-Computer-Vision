@@ -70,8 +70,8 @@ parameter MSG_INTERVAL = 6;
 parameter BB_COL_DEFAULT = 24'h00ff00;
 parameter THRESH_DEFAULT = 16'h10;
 
-wire signed [7:0]   red, green, blue, grey;
-wire [7:0]   red_out, green_out, blue_out;
+wire unsigned [7:0]   red, green, blue, grey;
+wire unsigned [7:0]   red_out, green_out, blue_out;
 
 wire         sop, eop, in_valid, out_ready;
 ////////////////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ wire match_detect;
 // Original red-detection
 //assign red_detect = red[7] & ~green[7] & ~blue[7];
 
-wire signed [7:0] target_red, target_green, target_blue;
+wire [7:0] target_red, target_green, target_blue;
 //assign target_red = 8'hff;
 //assign target_green = 8'h00;
 //assign target_blue = 8'hff;
@@ -91,29 +91,44 @@ assign target_blue = bb_col[7:0];
 assign target_green = bb_col[15:8];
 assign target_red = bb_col[23:16];
 
+wire signed [8:0] signed_red, signed_green,signed_blue;
+wire signed [8:0] signed_target_red, signed_target_green,signed_target_blue;
 
-wire signed [7:0] red_subtracted;
-assign red_subtracted = (red - target_red);
+assign signed_red = red;
+assign signed_green = green;
+assign signed_blue = blue;
 
-wire signed [7:0] green_subtracted;
-assign green_subtracted = (green - target_green);
+assign signed_target_red = target_red;
+assign signed_target_green = target_green;
+assign signed_target_blue = target_blue;
 
-wire signed [7:0] blue_subtracted;
-assign blue_subtracted = (blue - target_blue);
+
+wire signed [10:0] red_subtracted;
+assign red_subtracted = (signed_target_red - signed_red);
+
+wire signed [10:0] green_subtracted;
+assign green_subtracted = (signed_target_green  - signed_green);
+
+wire signed [10:0] blue_subtracted;
+assign blue_subtracted = (signed_target_blue - signed_blue);
 
 // max result of these is 3 * (8bit * 8bit), which requires 18 bits
 
-wire signed [18:0] distance_squared;
-wire signed [18:0] red_squared, green_squared, blue_squared;
+wire signed [23:0] distance_squared;
+wire signed [23:0] red_squared, green_squared, blue_squared;
 
-assign red_squared = red;//red_subtracted*red_subtracted;
-assign green_squared = green;//green_subtracted*green_subtracted;
-assign blue_squared = 8'hFF - blue;//blue_subtracted*blue_subtracted;
+assign red_squared = red_subtracted*red_subtracted;//red_subtracted*red_subtracted;
+assign green_squared = green_subtracted*green_subtracted;//green_subtracted*green_subtracted;
+assign blue_squared = blue_subtracted*blue_subtracted;//blue_subtracted*blue_subtracted;
 
-assign distance_squared = (red_squared + green_squared + blue_squared);
+assign distance_squared = ((red_squared<0 ? -red_squared : red_squared) + (green_squared<0 ? -green_squared : green_squared) + (blue_squared<0 ? -blue_squared: blue_squared));
 
 
-assign match_detect = distance_squared < 18'd30;
+assign match_detect = (distance_squared < thresh) && within_border;
+
+wire[10:0] border_encroaches;
+
+assign border_encroaches = 10'd20;
 
 
 // the pixel with the lowest distance_squared
@@ -129,7 +144,7 @@ reg[18:0] matchiest_pixel;
 // Find boundary of cursor box
 
 // Highlight detected areas
-wire [23:0] red_high, with_target_explainer, with_target_crosshair, with_avg_crosshair, with_text, with_uart_activity;
+wire [23:0] red_high, with_target_explainer, with_target_crosshair, with_avg_crosshair, with_text, with_uart_activity, with_border;
 assign grey = green[7:1] + red[7:2] + blue[7:2]; //Grey = green/2 + red/4 + blue/4
 
 
@@ -142,13 +157,25 @@ assign show_avg_crosshair = (((x == last_average_match_x) && (y < last_average_m
 
 assign with_avg_crosshair = show_avg_crosshair ? 24'hff00ff : red_high;
 
+wire within_border;
+
+assign within_border = (x > border_encroaches && x < (IMAGE_W - border_encroaches) && y > border_encroaches && y<(IMAGE_H - border_encroaches));
+
+assign with_border = (x == border_encroaches || x == (IMAGE_W - border_encroaches) || y == border_encroaches || y == (IMAGE_H - border_encroaches)) ? (24'h0000FF) : with_avg_crosshair;
+
 
 wire show_crosshair;
 
 assign show_crosshair = (((x == crosshair_x) && (y < crosshair_y + 50) && (y > crosshair_y - 50)) ||
 ((y == crosshair_y) && (x < crosshair_x + 50) && (x > crosshair_x - 50)));
 
-assign with_target_crosshair = show_crosshair ? 24'h00ffff : with_avg_crosshair;
+wire show_sampler;
+
+assign show_sampler = (x == sampler_x && y == sampler_y);
+
+
+
+assign with_target_crosshair = show_sampler ? 24'hFFFFFF : (show_crosshair ? 24'h00ffff : with_border);
 
 
 
@@ -239,6 +266,8 @@ assign new_image = with_uart_activity; //bb_active ? bb_col : with_target_explai
 // Don't modify data in non-video packets
 assign {red_out, green_out, blue_out} = (mode & ~sop & packet_video) ? new_image : {red,green,blue};
 
+
+
 //Count valid pixels to tget the image coordinates. Reset and detect packet type on Start of Packet.
 reg [10:0] x, y;
 reg packet_video;
@@ -249,6 +278,11 @@ always@(posedge clk) begin
 		packet_video <= (blue[3:0] == 3'h0);
 	end
 	else if (in_valid) begin
+		if (x == sampler_x && y == sampler_y) begin
+			sampler_red <= red;
+			sampler_green <= green;
+			sampler_blue <= blue;
+		end
 		if (x == IMAGE_W-1) begin
 			x <= 11'h0;
 			y <= y + 11'h1;
@@ -263,6 +297,15 @@ reg [7:0] cursor_red;
 reg [7:0] cursor_green;
 reg [7:0] cursor_blue;
 
+
+wire [10:0] sampler_x, sampler_y;
+
+assign sampler_x = 11'd320;
+assign sampler_y = 11'd240;
+
+reg [7:0] sampler_red, sampler_green, sampler_blue;
+
+
 //Find first and last red pixels
 reg [10:0] x_min, y_min, x_max, y_max;
 always@(posedge clk) begin
@@ -274,7 +317,7 @@ always@(posedge clk) begin
 		y_max <= y;
 		total_match_x<=total_match_x + x;
 		total_match_y<=total_match_y + y;
-		if (!(sop & in_valid)) begin
+		if (!sop) begin
 			match_count<=match_count + 1;
 		end
 	end
@@ -368,9 +411,11 @@ always@(*) begin	//Write words to FIFO as state machine advances
 			//msg_buf_in = {5'b0, x_max, 5'b0, y_max}; //Bottom right coordinate
 			
 			//msg_buf_in = {13'b0, matchiest_pixel};
-			msg_buf_in = {8'b0, cursor_red, cursor_green, cursor_blue};
+			//msg_buf_in = {8'b0, cursor_red, cursor_green, cursor_blue};
+			//msg_buf_in = {8'b0, target_red, target_green, target_blue};
 			//msg_buf_in = uart_active_count;
 			//msg_buf_in = 31'hDEADBEEF;
+			msg_buf_in = {10'b0, match_count};
 			msg_buf_wr = 1'b1;
 		end
 	endcase
@@ -437,7 +482,7 @@ STREAM_REG #(.DATA_WIDTH(26)) out_reg (
 
 reg  [7:0]   reg_status;
 reg	[23:0]	bb_col;
-reg [15:0] thresh;
+reg [31:0] thresh;
 
 always @ (posedge clk)
 begin
@@ -453,7 +498,7 @@ begin
 			uart_active_count<=32'h00FFFFFF;
 		   if      (s_address == `REG_STATUS)	reg_status <= s_writedata[7:0];
 		   if      (s_address == `REG_BBCOL)	bb_col <= s_writedata[23:0];
-			if   		(s_address == `REG_THRESH) thresh <= s_writedata[15:0];
+			if   		(s_address == `REG_THRESH) thresh <= s_writedata[31:0];
 		end
 		else begin
 			if (uart_active_count>4'h0) begin 
@@ -484,7 +529,7 @@ begin
 		if   (s_address == `READ_MSG) s_readdata <= {msg_buf_out};
 		if   (s_address == `READ_ID) s_readdata <= 32'h1234EEE2;
 		if   (s_address == `REG_BBCOL) s_readdata <= {8'h0, bb_col};
-		if   (s_address == `REG_THRESH) s_readdata <= {16'h0, thresh};
+		if   (s_address == `REG_THRESH) s_readdata <= {thresh};
 	end
 	
 	read_d <= s_read;

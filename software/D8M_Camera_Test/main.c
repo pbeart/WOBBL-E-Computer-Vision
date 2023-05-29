@@ -24,7 +24,9 @@
 //#define EXPOSURE_INIT 0x002000
 #define EXPOSURE_INIT 0x0
 #define EXPOSURE_STEP 0x100
+#define EXPOSURE_MAX 9000
 //#define GAIN_INIT 0x080
+#define GAIN_MAX 2048
 #define GAIN_INIT 320
 #define GAIN_STEP 0x040
 #define threshold_step 0x5
@@ -178,7 +180,7 @@ int target_strength = 0;
 int get_target_colour_by_index(int index) {
 	switch(index) {
 	   case 0:
-		   return 0xff0000;
+		   return 0xFF7F00;
 	   case 1:
 		   return 0xffff00;
 	   case 2:
@@ -266,7 +268,7 @@ int main()
     	int boundingBoxColour = 0;
     	alt_u32 exposureTime = EXPOSURE_INIT;
     	alt_u16 gain = GAIN_INIT;
-    	alt_u16 threshold = 50;
+    	alt_u16 threshold = 40000;
 
         OV8865SetExposure(exposureTime);
         OV8865SetGain(gain);
@@ -382,21 +384,25 @@ int main()
        switch (in) {
        	   case 'e': {
        		   exposureTime += EXPOSURE_STEP;
+       		   if (exposureTime > EXPOSURE_MAX) exposureTime = EXPOSURE_MAX;
        		   OV8865SetExposure(exposureTime);
        		   //printf("\nExposure = %x ", exposureTime);
        	   	   break;}
        	   case 'd': {
        		   exposureTime -= EXPOSURE_STEP;
+       		   if (exposureTime < 0) exposureTime = 0;
        		   OV8865SetExposure(exposureTime);
        		   //printf("\nExposure = %x ", exposureTime);
        	   	   break;}
        	   case 't': {
        		   gain += GAIN_STEP;
+       		   if (gain > GAIN_MAX) gain = GAIN_MAX;
        		   OV8865SetGain(gain);
        		   //printf("\nGain = %x ", gain);
        	   	   break;}
        	   case 'g': {
        		   gain -= GAIN_STEP;
+       		   if (gain < 0) gain = 0;
        		   OV8865SetGain(gain);
        		   //printf("\nGain = %x ", gain);
        	   	   break;}
@@ -412,12 +418,13 @@ int main()
         	   //printf("\nFocus = %x ",current_focus);
        	   	   break;}
        	   case 'y': {
-       		   threshold += threshold_step;
+       		   threshold *= 1.05;
 			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
 			   //printf("\nFocus = %x ",current_focus);
 			   break;}
 		   case 'h': {
-			   if(threshold > 0) threshold -= threshold_step;
+			   threshold /= 1.05;
+			   threshold++; // don't let threshold fall to 0, because it wouldn't be increasable by multiplying
 			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
 			   //printf("\nFocus = %x ",current_focus);
 			   break;}
