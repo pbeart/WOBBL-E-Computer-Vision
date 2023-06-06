@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <EnsembleReport name="Qsys" kind="Qsys" version="1.0" fabric="QSYS">
  <!-- Format version 18.0 614 (Future versions may contain additional information.) -->
- <!-- 2023.05.29.18:26:58 -->
+ <!-- 2023.06.06.16:17:23 -->
  <!-- A collection of modules and connections -->
  <parameter name="AUTO_GENERATION_ID">
   <type>java.lang.Integer</type>
-  <value>1685381218</value>
+  <value>1686064643</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>false</visible>
@@ -17594,7 +17594,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.TIMESTAMP</name>
-   <value>1685381218</value>
+   <value>1686064643</value>
   </assignment>
   <assignment>
    <name>embeddedsw.dts.compatible</name>
@@ -17614,7 +17614,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.dts.params.timestamp</name>
-   <value>1685381218</value>
+   <value>1686064643</value>
   </assignment>
   <assignment>
    <name>embeddedsw.dts.vendor</name>
@@ -17630,7 +17630,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="timestamp">
    <type>int</type>
-   <value>1685381218</value>
+   <value>1686064643</value>
    <derived>true</derived>
    <enabled>false</enabled>
    <visible>false</visible>
@@ -18870,7 +18870,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <assignment>
    <name>embeddedsw.CMacro.BAUD</name>
-   <value>115200</value>
+   <value>9600</value>
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.DATA_BITS</name>
@@ -18930,7 +18930,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.dts.params.current-speed</name>
-   <value>115200</value>
+   <value>9600</value>
   </assignment>
   <assignment>
    <name>embeddedsw.dts.vendor</name>
@@ -18938,7 +18938,7 @@ the requested settings for a module instance. -->
   </assignment>
   <parameter name="baud">
    <type>int</type>
-   <value>115200</value>
+   <value>9600</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>

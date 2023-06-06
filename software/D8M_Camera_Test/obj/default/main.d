@@ -1,4 +1,4 @@
-obj/default/main.o: main.c I2C_core.h \
+obj/default/main.o: main.c logging.h I2C_core.h \
  ../D8M_Camera_Test_bsp//HAL/inc/alt_types.h terasic_includes.h \
  ../D8M_Camera_Test_bsp//HAL/inc/sys/alt_flash.h \
  ../D8M_Camera_Test_bsp//HAL/inc/sys/alt_flash_types.h \
@@ -22,6 +22,8 @@ obj/default/main.o: main.c I2C_core.h \
  ../D8M_Camera_Test_bsp//HAL/inc/sys/alt_warning.h \
  ../D8M_Camera_Test_bsp//HAL/inc/sys/alt_stdio.h mipi_camera_config.h \
  mipi_bridge_config.h auto_focus.h
+
+logging.h:
 
 I2C_core.h:
 

@@ -1068,7 +1068,7 @@
   <parameter name="watchdogPulse" value="2" />
  </module>
  <module name="uart_0" kind="altera_avalon_uart" version="18.0" enabled="1">
-  <parameter name="baud" value="115200" />
+  <parameter name="baud" value="9600" />
   <parameter name="clockRate" value="50000000" />
   <parameter name="dataBits" value="8" />
   <parameter name="fixedBaud" value="true" />

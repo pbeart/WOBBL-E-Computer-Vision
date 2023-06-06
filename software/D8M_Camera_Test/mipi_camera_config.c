@@ -5,6 +5,7 @@
  *      Author: User
  */
 
+#include "logging.h"
 #include <stdio.h>
 #include "I2C_core.h"
 #include "terasic_includes.h"
@@ -16,7 +17,7 @@
 
 
 #define Sleep(x)	usleep(x*1000)
-#define OV8865DB(x) printf(x)
+#define OV8865DB(x) comm_log(x)
 
 typedef struct{
 	alt_u8 Type;
@@ -441,7 +442,7 @@ void OV8865_read_AF(void){
 
 		bSuccess = OC_I2C_Read_Continue(I2C_OPENCORES_CAMERA_BASE, device_address, szData8, sizeof(szData8));
 		if (bSuccess)
-			printf("\n{\"info\":\"Read MSB=%xh, LSB=%xh\"}\n", szData8[0], szData8[1]);
+			comm_log("\n{\"info\":\"Read MSB=%xh, LSB=%xh\"}\n", szData8[0], szData8[1]);
 }
 
 void OV8865_FOCUS_Move_to(alt_u16 a_u2MovePosition)
@@ -454,14 +455,14 @@ void OV8865_FOCUS_Move_to(alt_u16 a_u2MovePosition)
 
 	bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 	if (!bSuccess)
-		printf("\n{\"error\":\"Error when trying to move camera focus!\"}\n");
+		comm_log("\n{\"error\":\"Error when trying to move camera focus!\"}\n");
 
-	//printf("Manual set focus to %d\r\n",a_u2MovePosition);
+	//comm_log("Manual set focus to %d\r\n",a_u2MovePosition);
   alt_u8 msb,lsb;
   msb = (a_u2MovePosition >> 4)&0x00FF;
   lsb = (a_u2MovePosition << 4 )&0x00F0;
   lsb += 0x06;
-//	printf("Write MSB=%xh, LSB=%xh\r\n", msb, lsb);
+//	comm_log("Write MSB=%xh, LSB=%xh\r\n", msb, lsb);
 	OV8865_write_AF(msb, lsb+0x6);
 	usleep(1000);
 //	OV8865_read_AF();
@@ -476,7 +477,7 @@ void OV8865SetExposure(alt_u32 exposure){
 
 	int bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 	if (!bSuccess)
-		printf("\n{\"error\":\"Error when trying to set camera exposure!\"}\n");
+		comm_log("\n{\"error\":\"Error when trying to set camera exposure!\"}\n");
 
 	if (exposure > 0xFFFFF) exposure = 0xFFFFF;
 	if (exposure < 0x20) exposure = 0x20;
@@ -495,7 +496,7 @@ void OV8865SetGain(alt_u16 gain){
 
 	int bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 	if (!bSuccess)
-		printf("\n{\"error\":\"Error when trying to set camera gain!\"}\n");
+		comm_log("\n{\"error\":\"Error when trying to set camera gain!\"}\n");
 
 	if (gain > 0x7FF) gain = 0x7FF;
 	if (gain < 0x080) gain = 0x080;
@@ -515,7 +516,7 @@ alt_u32 OV8865ReadExposure(){
 
 	int bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 	if (!bSuccess)
-		printf("\n{\"error\":\"Error when trying to read camera exposure!\"}\n");
+		comm_log("\n{\"error\":\"Error when trying to read camera exposure!\"}\n");
 
 	exposure = OV8865_read_cmos_sensor_8(0x3500);
 	exposure = (exposure <<8) | OV8865_read_cmos_sensor_8(0x3501);
@@ -539,7 +540,7 @@ void MIPI_BIN_LEVEL(alt_u8 level){
 	  int bSuccess;
 		bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 		if (!bSuccess)
-			printf("\n{\"error\":\"Error when trying to adjust camera bin level!\"}\n");
+			comm_log("\n{\"error\":\"Error when trying to adjust camera bin level!\"}\n");
 
 
 	OV8865_write_cmos_sensor_8(0x0100, 0x00);
@@ -590,7 +591,7 @@ void MIPI_BIN_LEVEL(alt_u8 level){
 //	if(blc1 < 1) blc1 = 0;
 //	if(blc1 >= 31) blc1 = 31;
 //
-//        printf("BLC0 %d ,BLC1 %d \n",blc0,blc1);
+//        comm_log("BLC0 %d ,BLC1 %d \n",blc0,blc1);
 //        OV8865_write_cmos_sensor_8(0x0100, 0x00);
 //
 //		OV8865_write_cmos_sensor_8(0x3830, blc0);
@@ -612,12 +613,12 @@ void MipiCameraInit(void)
 
 		bSuccess = oc_i2c_init_ex(I2C_OPENCORES_CAMERA_BASE, 50*1000*1000,400*1000); //I2C: 400K
 		if (!bSuccess)
-			printf("\n{\"error\":\"Error when trying to init MIPI camera!\"}\n");
+			comm_log("\n{\"error\":\"Error when trying to init MIPI camera!\"}\n");
 
 //  searching for active I2C address.
 //    int ii;
 //    for(ii= 0; ii<256;ii++){
-//    	printf("%x:  ",ii);
+//    	comm_log("%x:  ",ii);
 //    	alt_u8 data = 0x30;
 //        OC_I2C_Write(I2C_OPENCORES_CAMERA_BASE, ii, 0x30,  (alt_u8 *)&data, 1);
 //        usleep(10000);
@@ -628,27 +629,27 @@ void MipiCameraInit(void)
 	 //OV8865DB("\nStart MipiCameraInit -OV8865!\r\n");
 	 //OV8865DB("Write Read Test!\n");
 
-		printf("\n{\"info\":\"Starting MipiCameraInit, starting write/read test...\"}\n");
+		comm_log("\n{\"info\":\"Starting MipiCameraInit, starting write/read test...\"}\n");
 
-		printf("\n{\"info\":\"Test results:\\n");
+		comm_log("\n{\"info\":\"Test results:\\n");
 
 		int error = 0;
 	    for(i=0;i<10;i++){
 	       OV8865_write_cmos_sensor_8(0x3809,i);
 	      usleep(100);
 	      int read = OV8865_read_cmos_sensor_8(0x3809);
-	        printf("%d (set to %d)\\n",read,i);
+	        comm_log("%d (set to %d)\\n",read,i);
 	        if (read != i) {
 	        	error = 1;
 	        }
 
 	      usleep(100);
 	    }
-	    printf("\"}\n");
+	    comm_log("\"}\n");
 	    if (error) {
-	    	printf("\n{\"error\":\"Camera CMOS write test failed!\"}\n");
+	    	comm_log("\n{\"error\":\"Camera CMOS write test failed!\"}\n");
 	    } else {
-	    	printf("\n{\"info\":\"Camera CMOS write test passed.\"}\n");
+	    	comm_log("\n{\"info\":\"Camera CMOS write test passed.\"}\n");
 	    };
 	 num = sizeof(MipiCameraReg)/sizeof(MipiCameraReg[0]);
      for(i=0;i<num;i++){
@@ -662,7 +663,7 @@ void MipiCameraInit(void)
  	oc_i2c_uninit(I2C_OPENCORES_CAMERA_BASE);  // Release I2C bus , due to two I2C master shared!
 
 
- 	printf("\n{\"info\":\"Ended MipiCameraInit.\"}\n");
+ 	comm_log("\n{\"info\":\"Ended MipiCameraInit.\"}\n");
 	 //OV8865DB("\nEnd MipiCameraInit! -OV8865!\r\n\n");
 
 }

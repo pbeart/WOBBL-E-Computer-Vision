@@ -1,5 +1,4 @@
-
-
+#include "logging.h"
 #include <stdio.h>
 #include "I2C_core.h"
 #include "terasic_includes.h"
@@ -20,15 +19,16 @@
 #define EEE_IMGPROC_ID 2
 #define EEE_IMGPROC_BBCOL 3
 #define EEE_IMGPROC_THRESH 4
+#define EEE_IMGPROC_PIXTHRESH 5
 
 //#define EXPOSURE_INIT 0x002000
-#define EXPOSURE_INIT 0x0
-#define EXPOSURE_STEP 0x100
+#define EXPOSURE_INIT 552
+#define EXPOSURE_STEP 0xF0
 #define EXPOSURE_MAX 9000
 //#define GAIN_INIT 0x080
 #define GAIN_MAX 2048
-#define GAIN_INIT 320
-#define GAIN_STEP 0x040
+#define GAIN_INIT 640
+#define GAIN_STEP 0x010
 #define threshold_step 0x5
 #define DEFAULT_LEVEL 3
 
@@ -179,16 +179,12 @@ int target_strength = 0;
 
 int get_target_colour_by_index(int index) {
 	switch(index) {
-	   case 0:
-		   return 0xFF7F00;
-	   case 1:
-		   return 0xffff00;
-	   case 2:
-		   return 0x00ff00;
-	   case 3:
-		   return 0x0000ff;
-	   case 4:
-		   return 0xff00ff;
+	   case 0: // red target colour
+		   return 0xFF1938;
+	   case 1: // orange target colour
+		   return 0xE09D00;
+	   case 2: // blue target colour
+		   return 0x0040EF;
 	   }
 	return 0xffffff;
 }
@@ -198,10 +194,19 @@ int main()
 
 	fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
 
+	printf("\n{\"status\": \"uart_init\"}\n");
+	ser = fopen("/dev/uart_0", "wb+"); // rb+
+	if(ser){
+		comm_log("\n{\"info\": \"Opened UART\"}\n");
+	} else {
+		comm_log("\n{\"error\": \"Failed to open UART\"}\n");
+		while (1);
+	}
+
   //printf("DE10-LITE D8M VGA Demo\n");
   //printf("Imperial College EEE2 Project version\n");
-  printf("\n{\"info\": \"Hello!\"}\n");
-  printf("\n{\"status\": \"earlystartup\"}\n");
+	comm_log("\n{\"info\": \"Hello!\"}\n");
+	comm_log("\n{\"status\": \"earlystartup\"}\n");
   IOWR(MIPI_PWDN_N_BASE, 0x00, 0x00);
   IOWR(MIPI_RESET_N_BASE, 0x00, 0x00);
 
@@ -211,20 +216,20 @@ int main()
   IOWR(MIPI_RESET_N_BASE, 0x00, 0xFF);
 
   //printf("Image Processor ID: %x\n",IORD(0x42000,EEE_IMGPROC_ID));
-  printf("\n{\"info\": \"Image Processor ID: %x\"}\n", IORD(0x42000,EEE_IMGPROC_ID));
+  comm_log("\n{\"info\": \"Image Processor ID: %x\"}\n", IORD(0x42000,EEE_IMGPROC_ID));
   //printf("Image Processor ID: %x\n",IORD(EEE_IMGPROC_0_BASE,EEE_IMGPROC_ID)); //Don't know why this doesn't work - definition is in system.h in BSP
 
 
   usleep(2000);
-  printf("\n{\"status\": \"camera_init\"}\n");
+  comm_log("\n{\"status\": \"camera_init\"}\n");
 
   // MIPI Init
    if (!MIPI_Init()){
 	  //printf("MIPI_Init Init failed!\r\n");
-	  printf("\n{\"error\": \"MIPI_Init Init failed!\"}\n");
+	   comm_log("\n{\"error\": \"MIPI_Init Init failed!\"}\n");
   }else{
 	  //printf("MIPI_Init Init successfully!\r\n");
-	  printf("\n{\"info\": \"MIPI_Init Init successfully!\"}\n");
+	  comm_log("\n{\"info\": \"MIPI_Init Init successfully!\"}\n");
   }
 
 
@@ -268,19 +273,17 @@ int main()
     	int boundingBoxColour = 0;
     	alt_u32 exposureTime = EXPOSURE_INIT;
     	alt_u16 gain = GAIN_INIT;
-    	alt_u16 threshold = 40000;
+    	alt_u16 threshold = 7000;
+
+    	alt_u16 pix_threshold = 50;
 
         OV8865SetExposure(exposureTime);
         OV8865SetGain(gain);
         Focus_Init();
-        printf("\n{\"status\": \"uart_init\"}\n");
-        FILE* ser = fopen("/dev/uart_0", "rb+");
-        if(ser){
-        	printf("\n{\"info\": \"Opened UART\"}\n");
-        } else {
-        	printf("\n{\"error\": \"Failed to open UART\"}\n");
-        	while (1);
-        }
+
+        IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
+        IOWR(0x42000, EEE_IMGPROC_PIXTHRESH, pix_threshold);
+
         printf("\n{\"status\": \"running\"}\n");
   while(1){
 
@@ -340,9 +343,10 @@ int main()
        //Read messages from the image processor and print them on the terminal
        while ((IORD(0x42000,EEE_IMGPROC_STATUS)>>8) & 0xff) { 	//Find out if there are words to read
            int word = IORD(0x42000,EEE_IMGPROC_MSG); 			//Get next word from message buffer
-    	   if (fwrite(&word, 4, 1, ser) != 1)
+    	   //word=69;
+           //if (fwrite(&word, 4, 1, ser) != 1)
     		   //printf("Error writing to UART");
-    		   printf("\n{\"error\": \"UART write error\"}\n");
+    		//   printf("\n{\"error\": \"UART write error\"}\n");
            if (word == EEE_IMGPROC_MSG_START) {				//Newline on message identifier
     		   //printf("-----------------\n");
            	   	   message_index = 0;
@@ -366,7 +370,7 @@ int main()
        if((IORD(KEY_BASE,0)&0x03) == 0x01){
     	   if (key0_debounce) {
 			   boundingBoxColour++;
-			   boundingBoxColour = boundingBoxColour % 5;
+			   boundingBoxColour = boundingBoxColour % 3;
 			   IOWR(0x42000, EEE_IMGPROC_BBCOL, get_target_colour_by_index(boundingBoxColour));
     	   }
 		   key0_debounce = 0;
@@ -418,28 +422,44 @@ int main()
         	   //printf("\nFocus = %x ",current_focus);
        	   	   break;}
        	   case 'y': {
-       		   threshold *= 1.05;
+       		   threshold *= 1.02;
 			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
 			   //printf("\nFocus = %x ",current_focus);
 			   break;}
 		   case 'h': {
-			   threshold /= 1.05;
+			   threshold /= 1.02;
 			   threshold++; // don't let threshold fall to 0, because it wouldn't be increasable by multiplying
 			   IOWR(0x42000, EEE_IMGPROC_THRESH, threshold);
 			   //printf("\nFocus = %x ",current_focus);
 			   break;}
+		   case 'u': {
+			   pix_threshold += 10;
+			   IOWR(0x42000, EEE_IMGPROC_PIXTHRESH, pix_threshold);
+			   //printf("\nFocus = %x ",current_focus);
+			   break;}
+		   case 'j': {
+			   pix_threshold -= 10;
+			   if (pix_threshold<=0) {
+				   pix_threshold = 0; // don't let threshold fall to 0, because it wouldn't be increasable by multiplying
+			   }
+			   IOWR(0x42000, EEE_IMGPROC_PIXTHRESH, pix_threshold);
+			   //printf("\nFocus = %x ",current_focus);
+			   break;}
        }
-       printf("\n{");
-       printf("\"current_search_colour\": %d,", get_target_colour_by_index(boundingBoxColour));
-       printf("\"target_location\": [%d, %d],", target_location_x, target_location_y);
-       printf("\"cam_gain\": %d,", gain);
-       printf("\"cam_exposure\": %d,", exposureTime);
-       printf("\"cam_focus\": %d,", current_focus);
-       printf("\"sens_threshold\": %d,", threshold);
-       //printf("\"target_strength\": %d,", target_strength);
-       printf("\"target_strength\": %06x,", target_strength);
-       printf("}\n");
-
+       //char data[] = "hii!";
+       //fwrite(&data, 1, 4, ser);
+       //comm_log("Heyyy! %d", 4);
+       comm_log("\r{");
+		comm_log("\"current_search_colour\": %d,", get_target_colour_by_index(boundingBoxColour));
+		comm_log("\"target_location\": [%d, %d],", target_location_x, target_location_y);
+		comm_log("\"cam_gain\": %d,", gain);
+		comm_log("\"cam_exposure\": %d,", exposureTime);
+		comm_log("\"cam_focus\": %d,", current_focus);
+		comm_log("\"sens_threshold\": %d,", threshold);
+		comm_log("\"pixel_count_threshold\": %d,", pix_threshold);
+		//comm_log("\"target_strength\": %d,", target_strength);
+		comm_log("\"target_strength\": %d", target_strength);
+		comm_log("}\r");
 
 	   //Main loop delay
 	   usleep(10000);

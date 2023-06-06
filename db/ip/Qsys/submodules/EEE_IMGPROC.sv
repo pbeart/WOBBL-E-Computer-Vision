@@ -69,6 +69,7 @@ parameter MESSAGE_BUF_MAX = 256;
 parameter MSG_INTERVAL = 6;
 parameter BB_COL_DEFAULT = 24'h00ff00;
 parameter THRESH_DEFAULT = 16'h10;
+parameter PIXTHRESH_DEFAULT = 16'h7f;
 
 wire unsigned [7:0]   red, green, blue, grey;
 wire unsigned [7:0]   red_out, green_out, blue_out;
@@ -152,10 +153,10 @@ assign red_high  =  match_detect ? {8'hff, 8'h0, 8'hff} : {red, green, blue};
 
 wire show_avg_crosshair;
 
-assign show_avg_crosshair = (((x == last_average_match_x) && (y < last_average_match_y + 50) && (y > last_average_match_y - 50)) ||
-((y == last_average_match_y) && (x < last_average_match_x + 50) && (x > last_average_match_x - 50)));
+assign show_avg_crosshair = (((x + 1 > filtered_blob_average_x) && (x < filtered_blob_average_x + 1) && (y < filtered_blob_average_y + 80) && (y + 80 > filtered_blob_average_y)) ||
+((y +1 > filtered_blob_average_y) && (y < filtered_blob_average_y + 1) && (x < filtered_blob_average_x + 80) && (x + 80 > filtered_blob_average_x)));
 
-assign with_avg_crosshair = show_avg_crosshair ? 24'hff00ff : red_high;
+assign with_avg_crosshair = show_avg_crosshair ? 24'h7fff7f : red_high;
 
 wire within_border;
 
@@ -166,8 +167,8 @@ assign with_border = (x == border_encroaches || x == (IMAGE_W - border_encroache
 
 wire show_crosshair;
 
-assign show_crosshair = (((x == crosshair_x) && (y < crosshair_y + 50) && (y > crosshair_y - 50)) ||
-((y == crosshair_y) && (x < crosshair_x + 50) && (x > crosshair_x - 50)));
+assign show_crosshair = (((x == last_average_match_x) && (y < last_average_match_y + 20) && (y + 20 > last_average_match_y)) ||
+((y == last_average_match_y) && (x < last_average_match_x + 20) && (x + 20 > last_average_match_x)));
 
 wire show_sampler;
 
@@ -175,7 +176,7 @@ assign show_sampler = (x == sampler_x && y == sampler_y);
 
 
 
-assign with_target_crosshair = show_sampler ? 24'hFFFFFF : (show_crosshair ? 24'h00ffff : with_border);
+assign with_target_crosshair = show_sampler ? 24'hFFFFFF : (show_crosshair ? 24'hff0000 : with_border);
 
 
 
@@ -305,9 +306,12 @@ assign sampler_y = 11'd240;
 
 reg [7:0] sampler_red, sampler_green, sampler_blue;
 
+reg [10:0] filtered_blob_average_x, filtered_blob_average_y;
+
 
 //Find first and last red pixels
 reg [10:0] x_min, y_min, x_max, y_max;
+reg[23:0] weight_pix_thresh;
 always@(posedge clk) begin
 	if (match_detect & in_valid) begin	//Update bounds when the pixel is red
 		if (x < x_min) x_min <= x;
@@ -338,11 +342,15 @@ always@(posedge clk) begin
 		
 		// to avoid multiple immediately repeated 'start of packets' causing us to lose the crosshair position! (really should debounce)
 		if (matchiest_pixel_y != 0) begin
-			crosshair_x<=matchiest_pixel_x;
-			crosshair_y<=matchiest_pixel_y;
+			//crosshair_x<=matchiest_pixel_x;
+			//crosshair_y<=matchiest_pixel_y;
 			
 			last_average_match_x<=(total_match_x / match_count);
 			last_average_match_y<=(total_match_y / match_count);
+			if (match_count>weight_pix_thresh) begin
+				filtered_blob_average_x<=4*filtered_blob_average_x/5 + last_average_match_x/5;
+				filtered_blob_average_y<=4*filtered_blob_average_y/5 + last_average_match_y/5;
+			end
 		end
 		
 		matchiest_pixel_x <= 0;
@@ -404,7 +412,7 @@ always@(*) begin	//Write words to FIFO as state machine advances
 		2'b10: begin
 			//msg_buf_in = {5'b0, x_min, 5'b0, y_min};	//Top left coordinate
 			// crosshair x and y are 11 bit each
-			msg_buf_in = {5'b0, crosshair_x, 5'b0, crosshair_y};
+			msg_buf_in = {5'b0, filtered_blob_average_x, 5'b0, filtered_blob_average_y};
 			msg_buf_wr = 1'b1;
 		end
 		2'b11: begin
@@ -469,6 +477,7 @@ STREAM_REG #(.DATA_WIDTH(26)) out_reg (
 `define READ_ID    				2
 `define REG_BBCOL					3
 `define REG_THRESH				4
+`define REG_PIXTHRESH			5
 
 //Status register bits
 // 31:16 - unimplemented
@@ -491,6 +500,7 @@ begin
 		reg_status <= 8'b0;
 		bb_col <= BB_COL_DEFAULT;
 		thresh <= THRESH_DEFAULT;
+		weight_pix_thresh <= PIXTHRESH_DEFAULT;
 		uart_active_count<=0;
 	end
 	else begin
@@ -499,6 +509,7 @@ begin
 		   if      (s_address == `REG_STATUS)	reg_status <= s_writedata[7:0];
 		   if      (s_address == `REG_BBCOL)	bb_col <= s_writedata[23:0];
 			if   		(s_address == `REG_THRESH) thresh <= s_writedata[31:0];
+			if   		(s_address == `REG_PIXTHRESH) weight_pix_thresh <= s_writedata[31:0];
 		end
 		else begin
 			if (uart_active_count>4'h0) begin 
@@ -530,6 +541,7 @@ begin
 		if   (s_address == `READ_ID) s_readdata <= 32'h1234EEE2;
 		if   (s_address == `REG_BBCOL) s_readdata <= {8'h0, bb_col};
 		if   (s_address == `REG_THRESH) s_readdata <= {thresh};
+		if   (s_address == `REG_PIXTHRESH) s_readdata <= {weight_pix_thresh};
 	end
 	
 	read_d <= s_read;

@@ -5,6 +5,7 @@
  *      Author: Administrator
  */
 
+#include "logging.h"
 #include <stdio.h>
 #include "I2C_core.h"
 #include "terasic_includes.h"
@@ -98,7 +99,7 @@ void MipiBridgeInit(void){
 	alt_u16 data;
     int i, num;
 
-	printf("\n{\"info\":\"Start MipiBridgeInit!\"}\n");
+	comm_log("\n{\"info\":\"Start MipiBridgeInit!\"}\n");
 
 	data = MipiBridgeRegRead(0x0000); // read chip and revision id;
 
@@ -106,9 +107,9 @@ void MipiBridgeInit(void){
 	int chip_revision = data & 0xffff;
 
 	if (expected_chip_revision == chip_revision) {
-		printf("\n{\"info\": \"Chip and Revision ID is %04xh (expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
+		comm_log("\n{\"info\": \"Chip and Revision ID is %04xh (expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
 	} else {
-		printf("\n{\"error\": \"Chip and Revision ID do not match! ID is %04xh(expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
+		comm_log("\n{\"error\": \"Chip and Revision ID do not match! ID is %04xh(expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
 	}
 
 
@@ -133,7 +134,7 @@ void MipiBridgeInit(void){
 //     MipiBridgeRegWrite(0x005E,((cap<<6) + (HsRxRs<<4) + ClkDly_data));
 //
 
-    printf("\n{\"info\":\"End MipiBridgeInit!\"}\n");
+    comm_log("\n{\"info\":\"End MipiBridgeInit!\"}\n");
 
 }
 
