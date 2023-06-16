@@ -412,7 +412,7 @@ always@(*) begin	//Write words to FIFO as state machine advances
 		2'b10: begin
 			//msg_buf_in = {5'b0, x_min, 5'b0, y_min};	//Top left coordinate
 			// crosshair x and y are 11 bit each
-			msg_buf_in = {5'b0, crosshair_x, 5'b0, crosshair_y};
+			msg_buf_in = {5'b0, filtered_blob_average_x, 5'b0, filtered_blob_average_y};
 			msg_buf_wr = 1'b1;
 		end
 		2'b11: begin

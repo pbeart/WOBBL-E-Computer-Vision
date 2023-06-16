@@ -124,8 +124,8 @@ end
 
 Qsys u0 (
 		.clk_clk                                   (MAX10_CLK1_50), 			//                              clk.clk
-		.reset_reset_n                             (1'b1), 						//                            reset.reset_n
-		
+		//.reset_reset_n                             (1'b1), 						//                            reset.reset_n
+		.reset_reset_n										(~ARDUINO_IO[2]),
 		.clk_sdram_clk                             (DRAM_CLK),					//                        clk_sdram.clk
 		.clk_vga_clk                               (disp_clk),					//                          clk_vga.clk
 		.d8m_xclkin_clk                            (MIPI_REFCLK),				//                       d8m_xclkin.clk
@@ -178,9 +178,11 @@ Qsys u0 (
 		
 		.eee_imgproc_0_conduit_mode_new_signal     (SW[0]),
 		
-		.uart_0_rx_tx_rxd                          (ARDUINO_IO[1]),                          //                     uart_0_rx_tx.rxd
-		.uart_0_rx_tx_txd                          (ARDUINO_IO[0])                           //
+		.uart_0_rx_tx_rxd                          (ARDUINO_IO[0]),                          //                     uart_0_rx_tx.rxd
+		.uart_0_rx_tx_txd                          (ARDUINO_IO[1])                           //
 	);
+	
+assign ARDUINO_IO[3] = 0; // convenient ground on 4th arduino IO pin
 
 FpsMonitor uFps(
 	.clk50(MAX10_CLK2_50),

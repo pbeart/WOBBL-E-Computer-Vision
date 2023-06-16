@@ -107,9 +107,9 @@ void MipiBridgeInit(void){
 	int chip_revision = data & 0xffff;
 
 	if (expected_chip_revision == chip_revision) {
-		comm_log("\n{\"info\": \"Chip and Revision ID is %04xh (expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
+		comm_log("\r{\"info\": \"Chip and Revision ID is %04xh (expected: 0x4401)\"}\r",chip_revision, expected_chip_revision);
 	} else {
-		comm_log("\n{\"error\": \"Chip and Revision ID do not match! ID is %04xh(expected: 0x4401)\"}\n",chip_revision, expected_chip_revision);
+		comm_log("\r{\"error\": \"Chip and Revision ID do not match! ID is %04xh(expected: 0x4401)\"}\r",chip_revision, expected_chip_revision);
 	}
 
 
@@ -134,7 +134,7 @@ void MipiBridgeInit(void){
 //     MipiBridgeRegWrite(0x005E,((cap<<6) + (HsRxRs<<4) + ClkDly_data));
 //
 
-    comm_log("\n{\"info\":\"End MipiBridgeInit!\"}\n");
+    comm_log("\r{\"info\":\"End MipiBridgeInit!\"}\r");
 
 }
 
