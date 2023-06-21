@@ -138,7 +138,7 @@ void mipi_show_error_info_more(void){
 
     printf("\"}\r");
 
-    if (error_yet != 0) printf("\r{\"error\": \"One or more detailed MIPI status registers was non-zero (error!), check log above for more information.\"}\r");
+    if (error_yet != 0) comm_log("\r{\"error\": \"One or more detailed MIPI status registers was non-zero (error!), check log above for more information.\"}\r");
 
 }
 
@@ -377,10 +377,10 @@ int main()
        }
 	#endif
 
-       printf("test a");
+       //printf("test a");
        //Read messages from the image processor and print them on the terminal
        while ((IORD(EEE_IMGPROC_BASE,EEE_IMGPROC_STATUS)>>8) & 0xff) { 	//Find out if there are words to read
-    	   printf("test b");
+    	   //printf("test b");
     	   int word = IORD(EEE_IMGPROC_BASE,EEE_IMGPROC_MSG); 			//Get next word from message buffer
     	   //word=69;
            //if (fwrite(&word, 4, 1, ser) != 1)
@@ -390,7 +390,7 @@ int main()
     		   //printf("-----------------\r");
            	   	   message_index = 0;
            }
-           printf("test c");
+           //printf("test c");
            if (message_index == 1) {
         	   // these 32 bits look like: {5'b0, matchiest_pixel_x, 5'b0, matchiest_pixel_y}
         	   target_location_x = (word & 0xffff0000)>>16;
